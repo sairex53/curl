@@ -857,15 +857,18 @@ static int myssh_in_AUTHLIST(struct Curl_easy *data,
 static int myssh_in_AUTH_PKEY_INIT(struct Curl_easy *data,
                                    struct ssh_conn *sshc)
 {
+  const char *priv_key = CURL_EASY_STR(data, STRING_SSH_PRIVATE_KEY);
   int rc;
   if(!(data->set.ssh_auth_types & CURLSSH_AUTH_PUBLICKEY)) {
     rc = myssh_to_GSSAPI_AUTH(data, sshc);
     return rc;
   }
 
-  /* Two choices, (1) private key was given on CMD,
-   * (2) use the "default" keys. */
-  if(sshc->priv_key && sshc->priv_key[0]) {
+  /* If a key file was explicitly selected, load it directly. A key path
+   * guessed by Curl_ssh_setup_pkey() is only a hint; let libssh try its
+   * default keys and agent so a rejected id_rsa does not mask other keys. */
+  if(sshc->priv_key && sshc->priv_key[0] &&
+     ((priv_key && priv_key[0]) || sshc->pubkey)) {
     if(sshc->pubkey && !sshc->passphrase) {
       rc = ssh_userauth_try_publickey(sshc->ssh_session, NULL, sshc->pubkey);
       if(rc == SSH_AUTH_AGAIN)
